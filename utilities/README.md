@@ -1,0 +1,21 @@
+# Image comparison utilities
+
+This package compares images that may have different dimensions, zoom levels, or crop boundaries. Run it from the project root:
+
+```powershell
+uv run python -m utilities.compare_images
+uv run python -m utilities.compare_images original.png zummed_in.png --feature orb
+```
+
+The default command finds the project PNGs, compares every pair, and prints a JSON report. Add `--output comparisons.json` to save the report.
+
+## Methods
+
+- **Resized SSIM** resizes both images to a common canvas and computes structural similarity. This is a quick baseline and can under-score a shared scene when framing differs.
+- **SIFT or ORB features** match local points and estimate a homography with RANSAC. Inlier count and ratio indicate alignment evidence; `aligned_ssim` compares the approximate overlapping bounding region. SIFT is the default; ORB is available with `--feature orb`.
+- **Multi-scale patch matching** searches for the smaller image within the larger image at a range of scales. It is useful for crop/zoom relationships; its correlation can be fooled by repetitive textures.
+- **Coarse region/layout comparison** compares color histograms and edge density in corresponding grid cells. It is a broad structural baseline, not semantic object detection or OCR.
+- **Multi-scale global correlation** reports a correlation at several downsampled sizes to show whether broad composition agrees.
+- **Optional embeddings** can be requested with `--onnx path\to\embedding-model.onnx`. This expects an ONNX image encoder accepting a 224x224 RGB image tensor scaled to 0–1 and returning an embedding vector. No model is bundled.
+
+Scores from these methods have different meanings and should not be averaged into one uncalibrated score. For map imagery, feature inliers plus patch correlation are the most useful overlap indicators in this starter implementation.

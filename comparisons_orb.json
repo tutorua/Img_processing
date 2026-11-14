@@ -1,0 +1,140 @@
+[
+  {
+    "image_a": "original.png",
+    "image_b": "zummed_in.png",
+    "size_a": [
+      649,
+      607
+    ],
+    "size_b": [
+      1683,
+      684
+    ],
+    "resized_ssim": 0.5372467041015625,
+    "features": {
+      "feature": "orb",
+      "keypoints_a": 975,
+      "keypoints_b": 1178,
+      "good_matches": 21,
+      "inliers": 13,
+      "inlier_ratio": 0.6190476190476191,
+      "overlap_fraction_of_a": 0.23101946972877174,
+      "aligned_ssim": 0.7748436331748962
+    },
+    "patch_match": {
+      "template_image": "a",
+      "correlation": 0.25994426012039185,
+      "scale": 0.5061335412180449,
+      "location": [
+        427,
+        321
+      ]
+    },
+    "layout": {
+      "grid": "4x4",
+      "mean_cell_color_correlation": 0.3993238506964689,
+      "mean_cell_edge_similarity": 0.9726600646972656
+    },
+    "multiscale": {
+      "scale_correlations": {
+        "512": -0.026481851935386658,
+        "256": -0.027747629210352898,
+        "128": -0.03127361461520195,
+        "64": -0.0341685526072979
+      },
+      "mean": -0.02991791209205985
+    }
+  },
+  {
+    "image_a": "original.png",
+    "image_b": "zummed_out.png",
+    "size_a": [
+      649,
+      607
+    ],
+    "size_b": [
+      1148,
+      650
+    ],
+    "resized_ssim": 0.49888405203819275,
+    "features": {
+      "feature": "orb",
+      "keypoints_a": 975,
+      "keypoints_b": 4168,
+      "good_matches": 214,
+      "inliers": 205,
+      "inlier_ratio": 0.9579439252336449,
+      "overlap_fraction_of_a": 0.5969033884881748,
+      "aligned_ssim": 0.7966221570968628
+    },
+    "patch_match": {
+      "template_image": "a",
+      "correlation": 0.24567683041095734,
+      "scale": 0.5061335412180449,
+      "location": [
+        51,
+        340
+      ]
+    },
+    "layout": {
+      "grid": "4x4",
+      "mean_cell_color_correlation": 0.47642554311902,
+      "mean_cell_edge_similarity": 0.95208740234375
+    },
+    "multiscale": {
+      "scale_correlations": {
+        "512": 0.2174740880727768,
+        "256": 0.22988338768482208,
+        "128": 0.25195133686065674,
+        "64": 0.29126763343811035
+      },
+      "mean": 0.2476441115140915
+    }
+  },
+  {
+    "image_a": "zummed_in.png",
+    "image_b": "zummed_out.png",
+    "size_a": [
+      1683,
+      684
+    ],
+    "size_b": [
+      1148,
+      650
+    ],
+    "resized_ssim": 0.4723062813282013,
+    "features": {
+      "feature": "orb",
+      "keypoints_a": 1178,
+      "keypoints_b": 4168,
+      "good_matches": 216,
+      "inliers": 213,
+      "inlier_ratio": 0.9861111111111112,
+      "overlap_fraction_of_a": 1.0,
+      "aligned_ssim": 0.9662652015686035
+    },
+    "patch_match": {
+      "template_image": "b",
+      "correlation": 0.24933716654777527,
+      "scale": 0.45,
+      "location": [
+        430,
+        367
+      ]
+    },
+    "layout": {
+      "grid": "4x4",
+      "mean_cell_color_correlation": 0.7902551868979228,
+      "mean_cell_edge_similarity": 0.9526863098144531
+    },
+    "multiscale": {
+      "scale_correlations": {
+        "512": 0.044300831854343414,
+        "256": 0.047966402024030685,
+        "128": 0.05406107008457184,
+        "64": 0.06480833888053894
+      },
+      "mean": 0.05278416071087122
+    }
+  }
+]
