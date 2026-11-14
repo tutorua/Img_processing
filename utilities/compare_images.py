@@ -182,17 +182,91 @@ def compare(path_a: Path, path_b: Path, feature: str = "sift", model: Path | Non
     return result
 
 
+def visualize_pair(path_a: Path, path_b: Path, output_dir: Path, feature: str = "sift") -> list[Path]:
+    """Save keypoint, inlier-match, overlap-overlay, and overlap-difference images."""
+    a, b = load_image(path_a), load_image(path_b)
+    detector, norm = _detector(feature)
+    gray_a, gray_b = cv2.cvtColor(a, cv2.COLOR_BGR2GRAY), cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
+    key_a, desc_a = detector.detectAndCompute(gray_a, None)
+    key_b, desc_b = detector.detectAndCompute(gray_b, None)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"{path_a.stem}__{path_b.stem}__{feature}"
+    paths: list[Path] = []
+
+    def save(suffix: str, image: np.ndarray) -> None:
+        path = output_dir / f"{stem}_{suffix}.jpg"
+        if not cv2.imwrite(str(path), image):
+            raise OSError(f"Could not write visualization: {path}")
+        paths.append(path)
+
+    save("keypoints_a", cv2.drawKeypoints(a, key_a, None, color=(0, 255, 0),
+                                           flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS))
+    save("keypoints_b", cv2.drawKeypoints(b, key_b, None, color=(0, 255, 0),
+                                           flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS))
+    if desc_a is None or desc_b is None or len(desc_a) < 2 or len(desc_b) < 2:
+        return paths
+    pairs = cv2.BFMatcher(norm).knnMatch(desc_a, desc_b, k=2)
+    good = [m for m, n in pairs if m.distance < 0.72 * n.distance]
+    homography = None
+    inlier_matches: list[cv2.DMatch] = []
+    if len(good) >= 4:
+        src = np.float32([key_a[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+        dst = np.float32([key_b[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+        homography, inlier_mask = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        if inlier_mask is not None:
+            inlier_matches = [m for m, keep in zip(good, inlier_mask.ravel()) if keep]
+    match_image = cv2.drawMatches(a, key_a, b, key_b, inlier_matches, None,
+                                  matchColor=(40, 220, 40), singlePointColor=(80, 80, 255),
+                                  flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    save("inlier_matches", match_image)
+    if homography is None:
+        return paths
+
+    warped = cv2.warpPerspective(a, homography, (b.shape[1], b.shape[0]))
+    coverage = cv2.warpPerspective(np.full(a.shape[:2], 255, np.uint8), homography,
+                                    (b.shape[1], b.shape[0]))
+    covered = coverage > 0
+    overlay = b.copy()
+    # Tint the transformed source green, then blend it with the target in shared pixels.
+    tinted = warped.copy()
+    tinted[:, :, 1] = np.maximum(tinted[:, :, 1], 150)
+    blended = cv2.addWeighted(b, 0.55, tinted, 0.45, 0)
+    overlay[covered] = blended[covered]
+    save("overlap_overlay", overlay)
+
+    difference = np.zeros_like(b)
+    absdiff = cv2.absdiff(warped, b)
+    difference[covered] = absdiff[covered]
+    # Contrast-stretch only the shared region so small local changes are visible.
+    if np.any(covered):
+        gray_diff = cv2.cvtColor(difference, cv2.COLOR_BGR2GRAY)
+        values = gray_diff[covered]
+        high = float(np.percentile(values, 99))
+        if high > 0:
+            difference = cv2.convertScaleAbs(difference, alpha=255.0 / high)
+        difference[~covered] = 0
+    save("overlap_difference", difference)
+    return paths
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare image pairs despite size or zoom differences.")
     parser.add_argument("images", nargs="*", type=Path, help="Images to compare; defaults to project PNGs")
     parser.add_argument("--feature", choices=("sift", "orb"), default="sift")
     parser.add_argument("--onnx", type=Path, help="Optional image-embedding ONNX model")
     parser.add_argument("--output", type=Path, help="Write JSON results to this path")
+    parser.add_argument("--visualize", nargs="?", const=Path("comparison_visuals"), type=Path,
+                        help="Save keypoints, inlier matches, overlap overlay, and difference views (optional directory)")
     args = parser.parse_args()
     images = args.images or sorted(Path(__file__).resolve().parent.parent.glob("*.png"))
     if len(images) < 2:
         parser.error("Provide at least two readable images")
-    results = [compare(a, b, args.feature, args.onnx) for i, a in enumerate(images) for b in images[i + 1:]]
+    results = []
+    for i, a in enumerate(images):
+        for b in images[i + 1:]:
+            results.append(compare(a, b, args.feature, args.onnx))
+            if args.visualize:
+                visualize_pair(a, b, args.visualize, args.feature)
     rendered = json.dumps(results, indent=2)
     if args.output:
         args.output.write_text(rendered + "\n", encoding="utf-8")

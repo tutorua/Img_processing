@@ -5,9 +5,12 @@ This package compares images that may have different dimensions, zoom levels, or
 ```powershell
 uv run python -m utilities.compare_images
 uv run python -m utilities.compare_images original.png zummed_in.png --feature orb
+uv run python -m utilities.compare_images --visualize
 ```
 
 The default command finds the project PNGs, compares every pair, and prints a JSON report. Add `--output comparisons.json` to save the report.
+
+Add `--visualize` to save per-pair keypoint images, RANSAC inlier match lines, a green-tinted overlap overlay, and an overlap-only difference image in `comparison_visuals/`. Pass a directory after the flag to choose another destination, for example `--visualize artifacts/map-check`.
 
 ## Methods
 
@@ -17,5 +20,7 @@ The default command finds the project PNGs, compares every pair, and prints a JS
 - **Coarse region/layout comparison** compares color histograms and edge density in corresponding grid cells. It is a broad structural baseline, not semantic object detection or OCR.
 - **Multi-scale global correlation** reports a correlation at several downsampled sizes to show whether broad composition agrees.
 - **Optional embeddings** can be requested with `--onnx path\to\embedding-model.onnx`. This expects an ONNX image encoder accepting a 224x224 RGB image tensor scaled to 0–1 and returning an embedding vector. No model is bundled.
+
+The visualization overlay shows the transformed first image blended with the second inside the estimated overlap. The difference view is contrast-stretched within that overlap, so it highlights small changes but does not show their original brightness scale.
 
 Scores from these methods have different meanings and should not be averaged into one uncalibrated score. For map imagery, feature inliers plus patch correlation are the most useful overlap indicators in this starter implementation.
