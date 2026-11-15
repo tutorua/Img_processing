@@ -2,3 +2,5 @@
 .uv-cache/
 __pycache__/
 *.py[cod]
+examples/images/opencv_samples/*
+examples/local_outputs/
