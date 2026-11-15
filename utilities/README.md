@@ -5,12 +5,15 @@ This package compares images that may have different dimensions, zoom levels, or
 ```powershell
 uv run python -m utilities.compare_images
 uv run python -m utilities.compare_images original.png zummed_in.png --feature orb
+uv run python -m utilities.compare_images --blur-kernel 3
 uv run python -m utilities.compare_images --visualize
 ```
 
 The default command finds the project PNGs, compares every pair, and prints a JSON report. Add `--output comparisons.json` to save the report.
 
 Add `--visualize` to save per-pair keypoint images, RANSAC inlier match lines, a green-tinted overlap overlay, and an overlap-only difference image in `comparison_visuals/`. Pass a directory after the flag to choose another destination, for example `--visualize artifacts/map-check`.
+
+Use `--blur-kernel 3` to apply a 3×3 Gaussian blur to the grayscale images before SIFT/ORB feature detection. The default `0` keeps blur disabled. The kernel must be a positive odd number. This preprocessing changes only the feature-matching path; pixel, patch, color/layout, and embedding comparisons use the original images.
 
 ## Methods
 
@@ -22,5 +25,7 @@ Add `--visualize` to save per-pair keypoint images, RANSAC inlier match lines, a
 - **Optional embeddings** can be requested with `--onnx path\to\embedding-model.onnx`. This expects an ONNX image encoder accepting a 224x224 RGB image tensor scaled to 0–1 and returning an embedding vector. No model is bundled.
 
 The visualization overlay shows the transformed first image blended with the second inside the estimated overlap. The difference view is contrast-stretched within that overlap, so it highlights small changes but does not show their original brightness scale.
+
+A 3×3 blur improved the SIFT inlier ratio on the graffiti and Messi examples but slightly reduced it on the box pair. Keep blur optional and compare inlier quality for the images you care about.
 
 Scores from these methods have different meanings and should not be averaged into one uncalibrated score. For map imagery, feature inliers plus patch correlation are the most useful overlap indicators in this starter implementation.

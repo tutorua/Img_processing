@@ -35,6 +35,14 @@ def ssim(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.mean(score))
 
 
+def feature_gray(image: np.ndarray, blur_kernel: int = 0) -> np.ndarray:
+    """Convert for local-feature detection and optionally suppress fine noise."""
+    if blur_kernel < 0 or (blur_kernel > 0 and blur_kernel % 2 == 0):
+        raise ValueError("blur_kernel must be 0 (disabled) or a positive odd number")
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    return cv2.GaussianBlur(gray, (blur_kernel, blur_kernel), 0) if blur_kernel else gray
+
+
 def _detector(name: str):
     if name == "sift" and hasattr(cv2, "SIFT_create"):
         return cv2.SIFT_create(nfeatures=5000), cv2.NORM_L2
@@ -43,13 +51,14 @@ def _detector(name: str):
     return cv2.ORB_create(nfeatures=6000, scaleFactor=1.2, nlevels=8), cv2.NORM_HAMMING
 
 
-def feature_match(a: np.ndarray, b: np.ndarray, feature: str = "sift") -> dict[str, Any]:
+def feature_match(a: np.ndarray, b: np.ndarray, feature: str = "sift", blur_kernel: int = 0) -> dict[str, Any]:
     """Estimate a projective alignment and report inlier count and overlap geometry."""
     detector, norm = _detector(feature)
-    ga, gb = cv2.cvtColor(a, cv2.COLOR_BGR2GRAY), cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
+    ga, gb = feature_gray(a, blur_kernel), feature_gray(b, blur_kernel)
     ka, da = detector.detectAndCompute(ga, None)
     kb, db = detector.detectAndCompute(gb, None)
-    result: dict[str, Any] = {"feature": feature, "keypoints_a": len(ka), "keypoints_b": len(kb),
+    result: dict[str, Any] = {"feature": feature, "blur_kernel": blur_kernel or None,
+                              "keypoints_a": len(ka), "keypoints_b": len(kb),
                               "good_matches": 0, "inliers": 0, "inlier_ratio": 0.0,
                               "overlap_fraction_of_a": 0.0, "aligned_ssim": None}
     if da is None or db is None or len(da) < 2 or len(db) < 2:
@@ -166,13 +175,14 @@ def optional_onnx_embedding(path_a: str | Path, path_b: str | Path, model_path: 
     return float(np.dot(vectors[0], vectors[1]))
 
 
-def compare(path_a: Path, path_b: Path, feature: str = "sift", model: Path | None = None) -> dict[str, Any]:
+def compare(path_a: Path, path_b: Path, feature: str = "sift", model: Path | None = None,
+            blur_kernel: int = 0) -> dict[str, Any]:
     a, b = load_image(path_a), load_image(path_b)
     result: dict[str, Any] = {
         "image_a": path_a.name, "image_b": path_b.name,
         "size_a": [int(a.shape[1]), int(a.shape[0])], "size_b": [int(b.shape[1]), int(b.shape[0])],
         "resized_ssim": ssim(a, b),
-        "features": feature_match(a, b, feature),
+        "features": feature_match(a, b, feature, blur_kernel),
         "patch_match": patch_match(a, b),
         "layout": layout_similarity(a, b),
         "multiscale": multiscale_similarity(a, b),
@@ -182,15 +192,17 @@ def compare(path_a: Path, path_b: Path, feature: str = "sift", model: Path | Non
     return result
 
 
-def visualize_pair(path_a: Path, path_b: Path, output_dir: Path, feature: str = "sift") -> list[Path]:
+def visualize_pair(path_a: Path, path_b: Path, output_dir: Path, feature: str = "sift",
+                   blur_kernel: int = 0) -> list[Path]:
     """Save keypoint, inlier-match, overlap-overlay, and overlap-difference images."""
     a, b = load_image(path_a), load_image(path_b)
     detector, norm = _detector(feature)
-    gray_a, gray_b = cv2.cvtColor(a, cv2.COLOR_BGR2GRAY), cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
+    gray_a, gray_b = feature_gray(a, blur_kernel), feature_gray(b, blur_kernel)
     key_a, desc_a = detector.detectAndCompute(gray_a, None)
     key_b, desc_b = detector.detectAndCompute(gray_b, None)
     output_dir.mkdir(parents=True, exist_ok=True)
-    stem = f"{path_a.stem}__{path_b.stem}__{feature}"
+    blur_tag = f"_blur{blur_kernel}" if blur_kernel else ""
+    stem = f"{path_a.stem}__{path_b.stem}__{feature}{blur_tag}"
     paths: list[Path] = []
 
     def save(suffix: str, image: np.ndarray) -> None:
@@ -253,20 +265,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Compare image pairs despite size or zoom differences.")
     parser.add_argument("images", nargs="*", type=Path, help="Images to compare; defaults to project PNGs")
     parser.add_argument("--feature", choices=("sift", "orb"), default="sift")
+    parser.add_argument("--blur-kernel", type=int, default=0,
+                        help="Optional odd Gaussian kernel size for feature detection; 0 disables blur (e.g. --blur-kernel 3)")
     parser.add_argument("--onnx", type=Path, help="Optional image-embedding ONNX model")
     parser.add_argument("--output", type=Path, help="Write JSON results to this path")
     parser.add_argument("--visualize", nargs="?", const=Path("comparison_visuals"), type=Path,
                         help="Save keypoints, inlier matches, overlap overlay, and difference views (optional directory)")
     args = parser.parse_args()
+    if args.blur_kernel < 0 or (args.blur_kernel > 0 and args.blur_kernel % 2 == 0):
+        parser.error("--blur-kernel must be 0 (disabled) or a positive odd number")
     images = args.images or sorted(Path(__file__).resolve().parent.parent.glob("*.png"))
     if len(images) < 2:
         parser.error("Provide at least two readable images")
     results = []
     for i, a in enumerate(images):
         for b in images[i + 1:]:
-            results.append(compare(a, b, args.feature, args.onnx))
+            results.append(compare(a, b, args.feature, args.onnx, args.blur_kernel))
             if args.visualize:
-                visualize_pair(a, b, args.visualize, args.feature)
+                visualize_pair(a, b, args.visualize, args.feature, args.blur_kernel)
     rendered = json.dumps(results, indent=2)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

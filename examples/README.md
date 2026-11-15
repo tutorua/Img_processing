@@ -16,6 +16,8 @@ uv run python examples/download_opencv_samples.py
 uv run python -m utilities.compare_images examples/images/opencv_samples/graf1.png examples/images/opencv_samples/graf3.png --output examples/local_outputs/graffiti.json --visualize examples/local_outputs/graffiti
 ```
 
+Add `--blur-kernel 3` to try a light Gaussian blur before feature detection; use a separate output directory to compare its keypoints and inlier matches with the unblurred run.
+
 The graffiti images show the same textured wall at different viewpoints. OpenCV's AKAZE tutorial uses this pair and supplies a reference homography, making it useful for examining SIFT/ORB inliers and the estimated overlap.
 
 ### Small object inside a larger scene
